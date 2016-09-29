@@ -1,0 +1,9 @@
+I aim to implement threading and context switching in this project. In short, I created a thread control block, and initialized a stack, initial function, and initial argument for the thread. Additionally, a yield function was implemented to allow for context switching between the main thread and the launched thread. All code was tested with print statements, with yields put in loops for both the main thread and launched thread.
+
+One issue that pops up with this method is when the main thread yields to an already completed thread. Here, the yield at the end of thread_wrap is not sufficient to control for this. We can either put this yield in a loop, or put some control flag into yield to make sure we do not yield to a completed thread.
+
+An elegant way to create and manage an arbitrary number of threads can be a circularly linked list. A linked list can grow arbitrarily big, and the circularly linked list means we can simply move to the next thread in the list when yielding.
+
+One use for the threading we've developed in this assignment can be a web server. The main thread can loop to take requests, in which we launch a thread to serve the request. An extra feature that would be useful is implementing code to manage an arbitrary number of threads to increase throughput.
+
+It is safe to free a thread's stack when the thread has finished execution (at the end of thread_wrap). Similarity, the thread control block can be freed when the thread has finished execution. However, as stated above, there is an issue when trying to yield to an already finished thread. This can be solved with the linked list approach (take it out of the list after execution), or a control flag in yield. The end of a thread's lifetime also comes when the thread returns either through a return or a join.
