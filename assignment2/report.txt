@@ -1,0 +1,8 @@
+I aim to implement a scheduler in this project, building on the thread control block, stack initialization, etc. from the last project. The scheduler is a round robin scheduler. The code was tested using the provided script. Additionally, I added a threadId field to give each thread a unique identifier, followed by print statements in yields to make sure threads were actually switching.
+
+The way I achieved memory management is by explicitly setting the state variable to be DONE in thread_wrap. This flag allows the yield function to note when a thread is done. When yielding with a thread that is DONE, the scheduler still switches context with the DONE thread (storing the current, now obsolete, stack into the DONE thread). After this switch, however, the thread's memory is freed. In order to avoid excessive allocations and deallocations, the code can maintain a thread pool, where preallocated threads can be used for new forks, and DONE threads can be reclaimed into the thread pool.
+
+The scheduler code is in its own thread, i.e. the main thread. The precise moment when we stop running one thread's code and start running another is the call to thread_switch.
+
+Another functionality that would be useful is a timer interrupt. This functionality will allow threads that are blocked to yield automatically during, e.g., a spin lock. A multi-threaded application that cannot write is an asynchronous I/O call given only synchronous I/O. The reason is that since each thread must explicitly yield, we would require an "I/O and yield" function, or a blocking I/O with a timer interrupt that automatically yields the blocking thread.
+
