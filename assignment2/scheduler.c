@@ -86,7 +86,7 @@ void scheduler_end(){
         struct thread * tmp_thread = thread_dequeue(&done_list);
         printf("Freeing thread %d\n", tmp_thread->threadId);
         //Free allocated stack
-        free(tmp_thread->stack_pointer);
+        free(tmp_thread->stack_pointer - STACK_SIZE);
         tmp_thread->stack_pointer = NULL;
         free(tmp_thread);
     }
