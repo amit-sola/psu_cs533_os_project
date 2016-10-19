@@ -37,7 +37,8 @@ void scheduler_begin(){
 void thread_fork(void(*target)(void*), void * arg){
     //Allocate new thread control block and stack
     struct thread * new_thread = (struct thread*) malloc(sizeof(struct thread));
-    new_thread->stack_pointer = ((unsigned char*) malloc(STACK_SIZE)) + STACK_SIZE;
+    new_thread->base_stack = (unsigned char*) malloc(STACK_SIZE);
+    new_thread->stack_pointer = new_thread->base_stack + STACK_SIZE;
     new_thread->initial_function = target;
     new_thread->initial_argument = arg;
     new_thread->threadId = threadCount;
@@ -57,7 +58,6 @@ void yield() {
         thread_enqueue(&ready_list, current_thread);
     }
     else{
-        printf("Thread %d done\n", current_thread->threadId);
         thread_enqueue(&done_list, current_thread);
     }
 
@@ -82,14 +82,17 @@ void scheduler_end(){
     //After all threads have yielded, we free all thread memory
     //Note that there will be a memory leak if scheduler_end is never called
     while(!is_empty(&done_list)){
-        printf("Current thread is %d\n", current_thread->threadId);
         struct thread * tmp_thread = thread_dequeue(&done_list);
-        printf("Freeing thread %d\n", tmp_thread->threadId);
         //Free allocated stack
-        free(tmp_thread->stack_pointer - STACK_SIZE);
+        free(tmp_thread->base_stack);
         tmp_thread->stack_pointer = NULL;
+        tmp_thread->base_stack = NULL;
         free(tmp_thread);
+        tmp_thread = NULL;
     }
+    //Free current thread block (main thread)
+    free(current_thread);
+    current_thread = NULL;
 }
 
 

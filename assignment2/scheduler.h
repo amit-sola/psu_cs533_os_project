@@ -14,6 +14,7 @@ struct thread {
     //Initial argument
     void* initial_argument;
     state_t state;
+    unsigned char* base_stack;
     int threadId;
 };
 
