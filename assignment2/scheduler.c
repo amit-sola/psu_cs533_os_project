@@ -5,6 +5,7 @@
 #define STACK_SIZE  1024*1024
 
 struct queue ready_list;
+struct queue done_list;
 struct thread * current_thread;
 
 //Function prototype for threads 
@@ -29,6 +30,8 @@ void scheduler_begin(){
     threadCount++;
     ready_list.head = NULL;
     ready_list.tail = NULL;
+    done_list.head = NULL;
+    done_list.tail = NULL;
 }
 
 void thread_fork(void(*target)(void*), void * arg){
@@ -49,13 +52,13 @@ void thread_fork(void(*target)(void*), void * arg){
 }
 
 void yield() {
-    unsigned int deleteThread = 0;
     if(current_thread->state != DONE){
         current_thread->state = READY;
         thread_enqueue(&ready_list, current_thread);
     }
     else{
-        deleteThread = 1;
+        printf("Thread %d done\n", current_thread->threadId);
+        thread_enqueue(&done_list, current_thread);
     }
 
     struct thread * tmp_thread = current_thread;
@@ -68,21 +71,24 @@ void yield() {
         //printf("Switching thread %d to thread %d\n", tmp_thread->threadId, current_thread->threadId);
         thread_switch(tmp_thread, current_thread);
     }
-
-    //Now that threads have switched, we check if the previous current thread can be freed
-    if(deleteThread == 1){
-        //Free allocated stack
-        free(tmp_thread->stack_pointer);
-        tmp_thread->stack_pointer = NULL;
-        free(tmp_thread);
-        tmp_thread= NULL;
-    }
 }
 
 void scheduler_end(){
     //While the queue is not empty, we call yield
     while(!is_empty(&ready_list)){
         yield();
+    }
+
+    //After all threads have yielded, we free all thread memory
+    //Note that there will be a memory leak if scheduler_end is never called
+    while(!is_empty(&done_list)){
+        printf("Current thread is %d\n", current_thread->threadId);
+        struct thread * tmp_thread = thread_dequeue(&done_list);
+        printf("Freeing thread %d\n", tmp_thread->threadId);
+        //Free allocated stack
+        free(tmp_thread->stack_pointer);
+        tmp_thread->stack_pointer = NULL;
+        free(tmp_thread);
     }
 }
 
