@@ -1,0 +1,5 @@
+I aim to implement asynchronous I/O in this project.
+
+In a cooperative multi-threaded environment on an uniprocessor, not calling yield in a critical section is like acquiring a lock for the critical section. This is still true, as long as the critical section does not call a function that calls yield (including the newly implemented asynchronous I/O). This, however, restricts critical sections to do synchronous I/O, which wastes computation if the thread needs to do I/O.
+
+Asynchronous software interrupts must need several key pieces of information. For example, a timeout is needed in case an interrupt never comes (although the current implementation of our asynchronous I/O also suffers from this problem). We also need a function to run when the code is signaled. The signal handler should manipulate the scheduler to change a blocked thread to a runnable thread. Since the program is now concurrent, we have to look out for race conditions in queues, the variable current_thread, the thread_id, just to name a few. Additionally, not calling yield in a critical section is no longer like acquiring a lock.
