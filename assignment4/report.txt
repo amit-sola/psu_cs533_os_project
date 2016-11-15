@@ -1,0 +1,3 @@
+I aim to implement mutex and conditional variables in this assignment.
+
+Since there can only exist one kernel thread in our user-level thread scheduler, there does not exist concurrency, as the current thread must explicitly yield to allow other threads to run. When we add another kernel thread that runs concurrently, we cannot assume memory invariance in the lock and unlock operations (as well as the unlock and wait operation in condition_wait). This can lead to race conditions within the lock itself, where multiple threads can modify the semaphore value. In order to overcome this problem, we need hardware support for atomic "test and set" (and "unlock and wait") operations.
