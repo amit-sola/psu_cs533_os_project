@@ -1,5 +1,5 @@
-#include "scheduler.h"
 #include <stdio.h>
+#include "scheduler.h"
 
 void print_nth_prime(void * pn) {
   int n = *(int *) pn;
@@ -18,22 +18,15 @@ void print_nth_prime(void * pn) {
     }
     yield();
   }
+  spinlock_lock(&printf_lock);
   printf("%dth prime: %d\n", n, i);
- 
+  spinlock_unlock(&printf_lock);
 }
 
 void print_n(void * n){
     yield();
     int nn = *(int * ) n;
     printf("%d\n", nn);
-}
-
-void echo(void * n){
-    //n is not used
-    char buf[100];
-    //0 is STDIN_FILENO
-    read_wrap(0, buf, 99);
-    printf("Echoing: %s", buf);
 }
 
 
@@ -44,7 +37,6 @@ int main(void) {
   thread_fork(print_nth_prime, &n1);
   thread_fork(print_nth_prime, &n2);
   thread_fork(print_nth_prime, &n3);
-  thread_fork(echo, &n1);
 
   scheduler_end();
 }
