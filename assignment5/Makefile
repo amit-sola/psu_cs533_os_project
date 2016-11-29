@@ -7,6 +7,9 @@ test0: counter_test.c scheduler.c queue.c switch.s async.c
 test1: counter_test.c scheduler.c queue.c switch.s async.c 
 	gcc -g -Wall -Wextra -Wpedantic counter_test.c scheduler.c queue.c switch.s async.c threadmap.c -lrt -o test1
 
+test2: spinlock_test.c
+	gcc -I ~/local/include -g -Wall -Wextra -Wpedantic spinlock_test.c -o test2
+
 #main: main.c scheduler.c queue.c switch.s async.c
 #	gcc -g -Wall -Wextra -Wpedantic main.c scheduler.c queue.c switch.s async.c -lrt -o main
 #demo1: demo1.c scheduler.c queue.c switch.s async.c 
@@ -18,5 +21,5 @@ test1: counter_test.c scheduler.c queue.c switch.s async.c
 
 
 clean:
-	rm -f test0
+	rm -f test0 test1 test2
 
