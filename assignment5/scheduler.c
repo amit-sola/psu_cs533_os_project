@@ -1,7 +1,13 @@
-#include "scheduler.h"
+#define _GNU_SOURCE
+#include <sched.h>
+
 #include <stdlib.h>
 #include <stdio.h>
+
+#include "scheduler.h"
+
 #define STACK_SIZE  1024*1024
+#define CLONE_FLAGS CLONE_THREAD|CLONE_VM|CLONE_SIGHAND|CLONE_FILES|CLONE_FS|CLONE_IO
 
 struct queue ready_list;
 struct queue done_list;
@@ -22,6 +28,20 @@ void thread_wrap() {
 
 int threadCount = 0;
 
+//Clone requires return value
+int kernel_thread_begin(){
+    //Allocate current thread
+    set_current_thread((struct thread*) malloc(sizeof(struct thread)));
+    current_thread->state = RUNNING;
+    //mutex_init(&(current_thread->t_mutex));
+    //condition_init(&(current_thread->t_cond));
+    //Yield forever
+    while(1){
+        yield();
+    }
+    return 0;//Should never get here
+}
+
 //One time setup and initialization
 void scheduler_begin(){
     //Allocate current thread
@@ -36,6 +56,10 @@ void scheduler_begin(){
     ready_list.tail = NULL;
     done_list.head = NULL;
     done_list.tail = NULL;
+
+    unsigned char * stack = (unsigned char*) malloc(STACK_SIZE) + STACK_SIZE; 
+    //Create new thread
+    clone(&kernel_thread_begin, stack, CLONE_FLAGS, NULL);
 }
 
 struct thread* thread_fork(void(*target)(void*), void * arg){

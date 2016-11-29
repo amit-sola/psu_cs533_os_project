@@ -4,6 +4,9 @@ default: main
 test0: counter_test.c scheduler.c queue.c switch.s async.c 
 	gcc -g -Wall -Wextra -Wpedantic counter_test.c scheduler.c queue.c switch.s async.c threadmap.c -lrt -o test0
 
+test1: counter_test.c scheduler.c queue.c switch.s async.c 
+	gcc -g -Wall -Wextra -Wpedantic counter_test.c scheduler.c queue.c switch.s async.c threadmap.c -lrt -o test1
+
 #main: main.c scheduler.c queue.c switch.s async.c
 #	gcc -g -Wall -Wextra -Wpedantic main.c scheduler.c queue.c switch.s async.c -lrt -o main
 #demo1: demo1.c scheduler.c queue.c switch.s async.c 
