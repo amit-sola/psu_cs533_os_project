@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include "scheduler.h"
 
+extern void * safe_mem(int, void*);
+#define malloc(arg) safe_mem(0, ((void*)(arg)))
+#define free(arg) safe_mem(1, arg)
+
 int shared_count = 0;
 int shared_array[50] = {0};
 
@@ -19,7 +23,9 @@ void increment_and_print(void * arg) {
     yield();
     shared_count = temp + 1;
 
+    spinlock_lock(&printf_lock);
     printf("%s, %d\n", (char*)arg, shared_count);
+    spinlock_unlock(&printf_lock);
     mutex_unlock(&m);
   }
 }
@@ -54,9 +60,9 @@ int main(int argc, char**argv) {
   printf(array_consistent ? "results are consistent.\n" 
                           : "results are inconsistent!\n");
 
-  for(i = 0; i < 5; ++i) {
-      free(names[i]);
-  }
+  //for(i = 0; i < 5; ++i) {
+  //    free(names[i]);
+  //}
 
   return 0;
 }

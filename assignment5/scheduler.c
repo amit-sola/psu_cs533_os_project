@@ -45,9 +45,11 @@ void thread_start(struct thread * old, struct thread * new);
 void thread_wrap() {
     spinlock_unlock(&ready_list_lock);
     current_thread->initial_function(current_thread->initial_argument);
+    //mutex_lock(&(current_thread->t_mutex));
     current_thread->state = DONE;
+    //mutex_unlock(&(current_thread->t_mutex));
     //Signal thread conditional variable
-    //condition_broadcast(&(current_thread->t_cond));
+    condition_broadcast(&(current_thread->t_cond));
     yield();
 }
 
@@ -58,8 +60,8 @@ int kernel_thread_begin(){
     //Allocate current thread
     set_current_thread((struct thread*) malloc(sizeof(struct thread)));
     current_thread->state = RUNNING;
-    //mutex_init(&(current_thread->t_mutex));
-    //condition_init(&(current_thread->t_cond));
+    mutex_init(&(current_thread->t_mutex));
+    condition_init(&(current_thread->t_cond));
     //Yield forever
     while(1){
         yield();
@@ -77,8 +79,8 @@ void scheduler_begin(){
     current_thread->threadId = threadCount;
     threadCount++;
     spinlock_unlock(&threadCount_lock);
-    //mutex_init(&(current_thread->t_mutex));
-    //condition_init(&(current_thread->t_cond));
+    mutex_init(&(current_thread->t_mutex));
+    condition_init(&(current_thread->t_cond));
 
     ready_list.head = NULL;
     ready_list.tail = NULL;
@@ -97,8 +99,8 @@ struct thread* thread_fork(void(*target)(void*), void * arg){
     new_thread->stack_pointer = new_thread->base_stack + STACK_SIZE;
     new_thread->initial_function = target;
     new_thread->initial_argument = arg;
-    //mutex_init(&(new_thread->t_mutex));
-    //condition_init(&(new_thread->t_cond));
+    mutex_init(&(new_thread->t_mutex));
+    condition_init(&(new_thread->t_cond));
 
     spinlock_lock(&threadCount_lock);
     new_thread->threadId = threadCount;
@@ -118,9 +120,10 @@ struct thread* thread_fork(void(*target)(void*), void * arg){
     return new_thread;
 }
 
-void yield() {
-    spinlock_lock(&ready_list_lock);
-    //Thread is runnable
+
+//This function yields the current thread for a new thread off the ready list,
+//but assumes that the caller has already acquired the ready list lock
+void yield_nolock(){
     switch(current_thread->state){
         case RUNNING:
             current_thread->state = READY;
@@ -157,6 +160,19 @@ void yield() {
         //printf("Switching thread %d to thread %d\n", tmp_thread->threadId, current_thread->threadId);
         thread_switch(tmp_thread, current_thread);
     }
+}
+
+void yield() {
+    spinlock_lock(&ready_list_lock);
+    yield_nolock();
+    spinlock_unlock(&ready_list_lock);
+}
+
+void block(AO_TS_t * spinlock){
+    //Acquire readylock and release spinlock, followed by yield
+    spinlock_lock(&ready_list_lock);
+    spinlock_unlock(spinlock);
+    yield_nolock();
     spinlock_unlock(&ready_list_lock);
 }
 
@@ -188,82 +204,108 @@ void scheduler_end(){
     free(current_thread);
 }
 
-//void mutex_init(struct mutex * i_mutex){
-//    i_mutex->held = 1;
-//    i_mutex->waiting_threads.head = NULL;
-//    i_mutex->waiting_threads.tail = NULL;
-//}
-//
-////Semaphore down
-//void mutex_lock(struct mutex * i_mutex){
-//    i_mutex->held--;
-//    if(i_mutex->held < 0){
-//        current_thread->state = BLOCKED;
-//        thread_enqueue(&(i_mutex->waiting_threads), current_thread);
-//        yield();
-//    }
-//}
-//
-//void mutex_unlock(struct mutex * i_mutex){
-//    i_mutex->held++;
-//    //if(!is_empty(&(i_mutex->waiting_threads))){
-//    if(i_mutex->held <= 0){
-//        if(is_empty(&(i_mutex->waiting_threads))){
-//            printf("Waiting threads queue in mutex is empty\n");
-//            exit(EXIT_FAILURE);
-//        }
-//        //Dequeue from wainting threads and enqueue into ready list
-//        struct thread* tmp_thread = thread_dequeue(&(i_mutex->waiting_threads));
-//        tmp_thread->state = READY;
-//        thread_enqueue(&ready_list, tmp_thread);
-//    }
-//}
-//
-//void condition_init(struct condition * i_cond){
-//    i_cond->waiting_threads.head = NULL;
-//    i_cond->waiting_threads.tail = NULL;
-//}
-//
-//void condition_wait(struct condition * i_cond, struct mutex * i_mutex){
-//    //Unlock mutex and wait
-//    mutex_unlock(i_mutex);
-//    //Wait
-//    current_thread->state = BLOCKED;
-//    thread_enqueue(&(i_cond->waiting_threads), current_thread);
-//    yield();
-//    //Relock mutex
-//    mutex_lock(i_mutex);
-//}
-//
-//void condition_signal(struct condition * i_cond){
-//    if(!is_empty(&(i_cond->waiting_threads))){
-//        //Dequeue from wainting threads and enqueue into ready list
-//        struct thread* tmp_thread = thread_dequeue(&(i_cond->waiting_threads));
-//        tmp_thread->state = READY;
-//        thread_enqueue(&ready_list, tmp_thread);
-//    }
-//}
-//
-//void condition_broadcast(struct condition * i_cond){
-//    while(!is_empty(&(i_cond->waiting_threads))){
-//        //Dequeue from wainting threads and enqueue into ready list
-//        struct thread* tmp_thread = thread_dequeue(&(i_cond->waiting_threads));
-//        tmp_thread->state = READY;
-//        thread_enqueue(&ready_list, tmp_thread);
-//    }
-//}
-//
-//void thread_join(struct thread* i_thread){
-//    //Acquire thread's mutex
-//    mutex_lock(&(i_thread->t_mutex));
-//
-//    //Wait until done
-//    while(i_thread->state != DONE){
-//        condition_wait(&(i_thread->t_cond), &(i_thread->t_mutex));
-//    }
-//    //TODO i_thread's memory can be freed here, but for simplicity, we wait until scheduler_end
-//    mutex_unlock(&(i_thread->t_mutex));
-//}
+void mutex_init(struct mutex * i_mutex){
+    i_mutex->held = 1;
+    i_mutex->lock = AO_TS_INITIALIZER;
+    i_mutex->waiting_threads.head = NULL;
+    i_mutex->waiting_threads.tail = NULL;
+}
+
+//Semaphore down
+void mutex_lock(struct mutex * i_mutex){
+    //Get spinlock
+    spinlock_lock(&(i_mutex->lock));
+    i_mutex->held--;
+    //Lock not acquired
+    if(i_mutex->held < 0){
+        current_thread->state = BLOCKED;
+        thread_enqueue(&(i_mutex->waiting_threads), current_thread);
+        //This call unlocks the mutex lock
+        block(&(i_mutex->lock));
+    }
+    //Lock acquired
+    else{
+        spinlock_unlock(&(i_mutex->lock));
+    }
+}
+
+void mutex_unlock(struct mutex * i_mutex){
+    spinlock_lock(&(i_mutex->lock));
+    i_mutex->held++;
+    if(i_mutex->held <= 0){
+        if(is_empty(&(i_mutex->waiting_threads))){
+            spinlock_lock(&printf_lock);
+            printf("Waiting threads queue in mutex is empty\n");
+            spinlock_unlock(&printf_lock);
+            exit(EXIT_FAILURE);
+        }
+        //Dequeue from wainting threads and enqueue into ready list
+        struct thread* tmp_thread = thread_dequeue(&(i_mutex->waiting_threads));
+        spinlock_lock(&ready_list_lock);
+        tmp_thread->state = READY;
+        thread_enqueue(&ready_list, tmp_thread);
+        spinlock_unlock(&ready_list_lock);
+    }
+    spinlock_unlock(&(i_mutex->lock));
+}
+
+void condition_init(struct condition * i_cond){
+    i_cond->waiting_threads.head = NULL;
+    i_cond->waiting_threads.tail = NULL;
+    i_cond->lock = AO_TS_INITIALIZER;
+}
+
+void condition_wait(struct condition * i_cond, struct mutex * i_mutex){
+    //Lock cond lock
+    spinlock_lock(&(i_cond->lock));
+    //Unlock mutex and wait
+    mutex_unlock(i_mutex);
+    current_thread->state = BLOCKED;
+    thread_enqueue(&(i_cond->waiting_threads), current_thread);
+    //We acquire the ready lock and release the cond lock here
+    block(&(i_cond->lock));
+    //Relock mutex after getting control again
+    mutex_lock(i_mutex);
+}
+
+void condition_signal(struct condition * i_cond){
+    //Lock cond lock
+    spinlock_lock(&(i_cond->lock));
+    if(!is_empty(&(i_cond->waiting_threads))){
+        //Dequeue from wainting threads and enqueue into ready list
+        struct thread* tmp_thread = thread_dequeue(&(i_cond->waiting_threads));
+        spinlock_lock(&ready_list_lock);
+        tmp_thread->state = READY;
+        thread_enqueue(&ready_list, tmp_thread);
+        spinlock_unlock(&ready_list_lock);
+    }
+    spinlock_unlock(&(i_cond->lock));
+}
+
+void condition_broadcast(struct condition * i_cond){
+    spinlock_lock(&(i_cond->lock));
+    while(!is_empty(&(i_cond->waiting_threads))){
+        //Dequeue from wainting threads and enqueue into ready list
+        struct thread* tmp_thread = thread_dequeue(&(i_cond->waiting_threads));
+        spinlock_lock(&ready_list_lock);
+        tmp_thread->state = READY;
+        thread_enqueue(&ready_list, tmp_thread);
+        spinlock_unlock(&ready_list_lock);
+    }
+    spinlock_unlock(&(i_cond->lock));
+}
+
+void thread_join(struct thread* i_thread){
+    //Acquire thread's mutex
+    mutex_lock(&(i_thread->t_mutex));
+
+    //Wait until done
+    while(i_thread->state != DONE){
+        condition_wait(&(i_thread->t_cond), &(i_thread->t_mutex));
+    }
+    //TODO i_thread's memory can be freed here, but for simplicity, we wait until scheduler_end
+    mutex_unlock(&(i_thread->t_mutex));
+}
 
 void spinlock_lock(AO_TS_t * inLock){
     //Loop until cleared

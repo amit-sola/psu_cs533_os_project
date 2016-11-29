@@ -1,4 +1,4 @@
-default: test3
+default: test4_sort
 
 
 test0: counter_test.c scheduler.c queue.c switch.s async.c threadmap.c
@@ -13,6 +13,13 @@ test2: spinlock_test.c
 test3: factorial_test.c scheduler.c queue.c switch.s async.c threadmap.c
 	gcc -I ~/local/include -g -Wall -Wextra -Wpedantic factorial_test.c scheduler.c queue.c switch.s async.c threadmap.c -lrt -o test3
 
+test4_counter: counter_test.c scheduler.c queue.c switch.s async.c threadmap.c
+	gcc -I ~/local/include -g -Wall -Wextra -Wpedantic counter_test.c scheduler.c queue.c switch.s async.c threadmap.c -lrt -o test4_counter
+
+test4_sort: sort_test.c scheduler.c queue.c switch.s async.c threadmap.c
+	gcc -I ~/local/include -g -Wall -Wextra -Wpedantic sort_test.c scheduler.c queue.c switch.s async.c threadmap.c -lrt -o test4_sort
+
+
 #main: main.c scheduler.c queue.c switch.s async.c
 #	gcc -g -Wall -Wextra -Wpedantic main.c scheduler.c queue.c switch.s async.c -lrt -o main
 #demo1: demo1.c scheduler.c queue.c switch.s async.c 
@@ -24,5 +31,5 @@ test3: factorial_test.c scheduler.c queue.c switch.s async.c threadmap.c
 
 
 clean:
-	rm -f test0 test1 test2 test3
+	rm -f test0 test1 test2 test3 test4_counter test4_sort
 

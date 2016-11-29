@@ -16,11 +16,13 @@ typedef enum{
 
 struct mutex{
     int held;
+    AO_TS_t lock;
     struct queue waiting_threads;
 };
 
 struct condition{
     struct queue waiting_threads;
+    AO_TS_t lock;
 };
 
 struct thread {
@@ -43,25 +45,26 @@ int kernel_thread_begin();
 //Switches among runnable threads
 struct thread* thread_fork(void(*target)(void*), void * arg);
 //Switches among runnable threads
+void yield_nolock();
 void yield();
+void block(AO_TS_t* spinlock);
 //To wait for all thraeds in the system to finish
 void scheduler_end();
-//Joins all threads
-//void thread_join(struct thread*);
 
 ssize_t read_wrap(int fd, void* buf, size_t count);
 
-//extern struct thread * current_thread;
+void mutex_init(struct mutex *);
+void mutex_lock(struct mutex *);
+void mutex_unlock(struct mutex *);
 
-//void mutex_init(struct mutex *);
-//void mutex_lock(struct mutex *);
-//void mutex_unlock(struct mutex *);
-//
-//void condition_init(struct condition *);
-//void condition_wait(struct condition *, struct mutex *);
-//void condition_signal(struct condition *);
-//void condition_broadcast(struct condition *);
-//
+void condition_init(struct condition *);
+void condition_wait(struct condition *, struct mutex *);
+void condition_signal(struct condition *);
+void condition_broadcast(struct condition *);
+
+//Joins all threads
+void thread_join(struct thread*);
+
 //Spin lock primitives
 void spinlock_lock(AO_TS_t *);
 void spinlock_unlock(AO_TS_t *);
