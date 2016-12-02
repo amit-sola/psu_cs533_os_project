@@ -45,9 +45,11 @@ void thread_start(struct thread * old, struct thread * new);
 void thread_wrap() {
     spinlock_unlock(&ready_list_lock);
     current_thread->initial_function(current_thread->initial_argument);
-    //mutex_lock(&(current_thread->t_mutex));
+
+    mutex_lock(&(current_thread->t_mutex));
     current_thread->state = DONE;
-    //mutex_unlock(&(current_thread->t_mutex));
+    mutex_unlock(&(current_thread->t_mutex));
+
     //Signal thread conditional variable
     condition_broadcast(&(current_thread->t_cond));
     yield();
@@ -70,7 +72,7 @@ int kernel_thread_begin(){
 }
 
 //One time setup and initialization
-void scheduler_begin(){
+void scheduler_begin(int num_kthreads){
     //Allocate current thread
     set_current_thread((struct thread*) malloc(sizeof(struct thread)));
     current_thread->state = RUNNING;
@@ -87,12 +89,16 @@ void scheduler_begin(){
     done_list.head = NULL;
     done_list.tail = NULL;
 
-    unsigned char * stack = (unsigned char*) malloc(STACK_SIZE) + STACK_SIZE; 
-    //Create new thread
-    clone(&kernel_thread_begin, stack, CLONE_FLAGS, NULL);
+    //Number of kthreads should include this current thread
+    for(int i = 0; i < num_kthreads - 1; i++){
+        unsigned char * stack = (unsigned char*) malloc(STACK_SIZE) + STACK_SIZE; 
+        //Create new thread
+        clone(&kernel_thread_begin, stack, CLONE_FLAGS, NULL);
+    }
 }
 
 struct thread* thread_fork(void(*target)(void*), void * arg){
+
     //Allocate new thread control block and stack
     struct thread * new_thread = (struct thread*) malloc(sizeof(struct thread));
     new_thread->base_stack = (unsigned char*) malloc(STACK_SIZE);
@@ -107,16 +113,21 @@ struct thread* thread_fork(void(*target)(void*), void * arg){
     threadCount++;
     spinlock_unlock(&threadCount_lock);
 
-    //Switching context
+
+    //mutex_lock(&(current_thread->t_mutex));
     current_thread->state = READY;
+    //mutex_unlock(&(current_thread->t_mutex));
+
     //Acquire ready lock
     spinlock_lock(&ready_list_lock);
+    //Switching context
     thread_enqueue(&ready_list, current_thread);
     new_thread->state = RUNNING;
     struct thread * tmp_thread = current_thread;
     set_current_thread(new_thread);
     thread_start(tmp_thread, current_thread);
     spinlock_unlock(&ready_list_lock);
+
     return new_thread;
 }
 
@@ -284,14 +295,14 @@ void condition_signal(struct condition * i_cond){
 
 void condition_broadcast(struct condition * i_cond){
     spinlock_lock(&(i_cond->lock));
+    spinlock_lock(&ready_list_lock);
     while(!is_empty(&(i_cond->waiting_threads))){
         //Dequeue from wainting threads and enqueue into ready list
         struct thread* tmp_thread = thread_dequeue(&(i_cond->waiting_threads));
-        spinlock_lock(&ready_list_lock);
         tmp_thread->state = READY;
         thread_enqueue(&ready_list, tmp_thread);
-        spinlock_unlock(&ready_list_lock);
     }
+    spinlock_unlock(&ready_list_lock);
     spinlock_unlock(&(i_cond->lock));
 }
 
@@ -303,6 +314,7 @@ void thread_join(struct thread* i_thread){
     while(i_thread->state != DONE){
         condition_wait(&(i_thread->t_cond), &(i_thread->t_mutex));
     }
+
     //TODO i_thread's memory can be freed here, but for simplicity, we wait until scheduler_end
     mutex_unlock(&(i_thread->t_mutex));
 }

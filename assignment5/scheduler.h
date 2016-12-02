@@ -40,7 +40,7 @@ struct thread {
 };
 
 //One time setup and initialization
-void scheduler_begin();
+void scheduler_begin(int num_kthreads);
 int kernel_thread_begin();
 //Switches among runnable threads
 struct thread* thread_fork(void(*target)(void*), void * arg);

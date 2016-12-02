@@ -41,7 +41,7 @@ int main(int argc, char**argv) {
   }
   mutex_init(&m);
 
-  scheduler_begin();
+  scheduler_begin(2);
 
   for(i = 0; i < 5; ++i) {
     thread_fork(increment_and_print, names[i]);

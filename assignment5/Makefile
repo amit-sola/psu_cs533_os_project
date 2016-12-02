@@ -1,4 +1,4 @@
-default: test4_sort
+default: test5
 
 
 test0: counter_test.c scheduler.c queue.c switch.s async.c threadmap.c
@@ -19,6 +19,9 @@ test4_counter: counter_test.c scheduler.c queue.c switch.s async.c threadmap.c
 test4_sort: sort_test.c scheduler.c queue.c switch.s async.c threadmap.c
 	gcc -I ~/local/include -g -Wall -Wextra -Wpedantic sort_test.c scheduler.c queue.c switch.s async.c threadmap.c -lrt -o test4_sort
 
+test5: scale_sort_test.c scheduler.c queue.c switch.s async.c threadmap.c
+	gcc -I ~/local/include -g -Wall -Wextra -Wpedantic scale_sort_test.c scheduler.c queue.c switch.s async.c threadmap.c -lrt -o test5
+
 
 #main: main.c scheduler.c queue.c switch.s async.c
 #	gcc -g -Wall -Wextra -Wpedantic main.c scheduler.c queue.c switch.s async.c -lrt -o main
@@ -31,5 +34,5 @@ test4_sort: sort_test.c scheduler.c queue.c switch.s async.c threadmap.c
 
 
 clean:
-	rm -f test0 test1 test2 test3 test4_counter test4_sort
+	rm -f test0 test1 test2 test3 test4_counter test4_sort test5
 
