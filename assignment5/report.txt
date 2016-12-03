@@ -1,0 +1,9 @@
+We aim to implement M:N threads.
+Part 0: Tested with counter_test from assignemnt 4
+Part 1: Tested with counter_test from assignment 4
+Part 2: Tested with provided spinlock_test
+Part 3: Tested with factorial test from assignment 2
+Part 4: Tested with counter_test and sort_test from assignment 4
+Part 5: Tested with provided sort_test 
+
+We vary 3 parameters in sort_test, with plots showing the effects of each parameter in the output directory. With an array size of 3000000 and a seq_threshold of 200, we can get up to 5 kernel threads. An effective improvement is replacing the forever yielding threads with something smarter, such as using the blocking mechanism to wait until there exists a thread on the ready list.
